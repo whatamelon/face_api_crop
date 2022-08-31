@@ -13,6 +13,7 @@ var goCrop = function(topOffset,img_path, originImgWidth, originImgHeight){
         let width = Math.floor((height/originImgHeight) * originImgWidth);
         let left = Math.floor((originImgWidth - width)/2);
 
+
         sharp(inputImage).extract({ width: width, height: height, left: left, top: topOffset }).resize(width, height).toFile(outputImage)
             .then(function(new_file_info) {
                 resolve({
