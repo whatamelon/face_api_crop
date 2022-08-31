@@ -9,7 +9,7 @@
     "dev": "nodemon src/index.js --exec babel-node"
   },
   "keywords": [],
-  "author": "KHJcode",
+  "author": "whatamelon",
   "license": "MIT",
   "dependencies": {
     "@tensorflow/tfjs-node": "^1.7.0",
