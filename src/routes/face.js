@@ -1,22 +1,14 @@
 import express from 'express';
-import multer from 'multer';
 import { nets, detectSingleFace } from 'face-api.js';
 import { canvas, faceDetectionNet, faceDetectionOptions } from '../commons';
+import { awsUploadImg } from '../commons/aws';
 import { successLandMark,successBehind,noLandMark } from '../commons/choiceCrop';
+import { downloadImages } from '../commons/downloadImage';
 
 const fs = require('fs');
 const path = require('path');
-const router = express.Router();
 
-const storage  = multer.diskStorage({
-  destination(req, file, cb) {
-    cb(null, 'uploads/');
-  },
-  filename(req, file, cb) {
-    cb(null, file.originalname);
-  },
-});
-const uploadWithOriginalFilename = multer({ storage });
+const router = express.Router();
 
 const run = async () => {
   const MODEL_URL = './models/';
@@ -25,82 +17,72 @@ const run = async () => {
   await nets.faceLandmark68Net.loadFromDisk(MODEL_URL);
 
   let fileList = [];
+  let resultList = [];
   const uploadFolder = path.resolve('./uploads');
+
 
   fs.readdirSync(uploadFolder).forEach(file => {
     fileList.push(file);
   });
 
   console.log('-----------------------')
-  console.log('|        Start!   > ', fileList)
+  console.log('|        Start!   ', fileList)
   console.log('-----------------------')
 
-  let resultList = [];
 
-  const promiseResult = await Promise.all(fileList.reduce(async ( promise, fileName, index ) => {
-    const img_path = './uploads/' + fileName;
-    const img = await canvas.loadImage(img_path);
+  const imgCropPromise = fileList.map(async (fileName) => {
 
-    console.log('-----------------------')
-    console.log('|     Get LandMark > '+ img_path)
-    console.log('-----------------------')
+      const img_path = './uploads/' + fileName;
+      const img = await canvas.loadImage(img_path);
 
-    const landmarkResult = (await detectSingleFace(img, faceDetectionOptions).withFaceLandmarks());
+      const landmarkResult = (await detectSingleFace(img, faceDetectionOptions).withFaceLandmarks());
 
-    if(landmarkResult) {
+      if(landmarkResult) {
 
-      resultList.push(await successLandMark(img_path,landmarkResult, index));
+        resultList.push(await successLandMark(img_path,landmarkResult));
 
-    } else if(landmarkResult == undefined && img_path.split('_')[1].includes('4') == true) {
+      } else if(landmarkResult == undefined && img_path.split('_')[1].includes('4') == true) {
 
-      resultList.push(await successBehind(img_path));
+        resultList.push(await successBehind(img_path));
 
-    } else {
-      resultList.push(noLandMark(img_path));
-    }
-  }));
+      } else {
+        resultList.push(noLandMark(img_path));
+      }
+  });
 
-  if (promiseResult) return resultList;
+  const promiseResult = await Promise.all(imgCropPromise);
 
-  // const imgCropPromise = fileList.map(async (fileName) => {
-
-  //     const img_path = './uploads/' + fileName;
-  //     const img = await canvas.loadImage(img_path);
-
-  //     console.log('-----------------------')
-  //     console.log('|     Get LandMark > '+ img_path)
-  //     console.log('-----------------------')
-
-  //     const landmarkResult = (await detectSingleFace(img, faceDetectionOptions).withFaceLandmarks());
-
-  //     if(landmarkResult) {
-
-  //       resultList.push(await successLandMark(img_path,landmarkResult));
-
-  //     } else if(landmarkResult == undefined && img_path.split('_')[1].includes('4') == true) {
-
-  //       resultList.push(await successBehind(img_path));
-
-  //     } else {
-  //       resultList.push(noLandMark(img_path));
-  //     }
-  // });
-
-  // const promiseResult = await Promise.all(imgCropPromise);
-
-  // if (promiseResult) return resultList;
-
-  return 'not found';
+  if (promiseResult) return {
+    status:200,
+    result:resultList
+  };
+  else return {
+    status:404,
+    result:[]
+  };
 };
 
-
-router.post('/', uploadWithOriginalFilename.array('image',10), async (req, res, next) => {
+router.post('/', async (req, res, next) => {
   try {
-    const data = await run();
-    res.status(200).json(data);
-    console.log('-----------------------')
-    console.log('|      Finish 200     |')
-    console.log('-----------------------')
+    const downres = await downloadImages(req.body.urls.split(':::'));
+    if(downres == 200) {
+      console.log('-----------------------')
+      console.log('|   DownLoad Succes   |')
+      console.log('-----------------------')
+      setTimeout(async () => {
+        const data = await run();
+        if(data.status == 200) {
+          const awsres = await awsUploadImg(data.resultList);
+          if(awsres.status == 200) {
+            res.status(awsres.status).json(awsres.result);
+            console.log('-----------------------')
+            console.log('|      Finish 200     |')
+            console.log('-----------------------')
+          }
+        }
+
+      }, 5000);
+    }
   } catch (err) {
     console.log('-----------------------')
     console.log('|       Fail 404      |')

@@ -4,14 +4,10 @@ const fs = require('fs');
 const path = require('path');
 const probe = require('probe-image-size');
 
-var luckychouetteFirstImgTop = 0;
-
 
 var noLandMark = function(img_path){
     console.log('-----------------------')
-    console.log('|                     |')
     console.log('|    LandMark Fail > '+ img_path)
-    console.log('|                     |')
     console.log('-----------------------')
 
     return {
@@ -23,26 +19,17 @@ var noLandMark = function(img_path){
 
 
 
-var successLandMark = async function(img_path,landmarkResult, index) {
+var successLandMark = async function(img_path,landmarkResult) {
 
     console.log('-----------------------')
-    console.log('|                     |')
     console.log('|    LandMark Success > '+ img_path)
-    console.log('|                     |')
     console.log('-----------------------')
     let topOffset = Math.floor(landmarkResult.alignedRect.box.y + landmarkResult.alignedRect.box.height);
     let originImgWidth = landmarkResult.alignedRect.imageDims.width;
     let originImgHeight = landmarkResult.alignedRect.imageDims.height;
 
-    if(index == 0) {
-      console.log('index = 0 , top offset : ',topOffset)
-      luckychouetteFirstImgTop = topOffset;
-    }
-
     console.log('-----------------------')
-    console.log('|                     |')
     console.log('|        Go Crop      |')
-    console.log('|                     |')
     console.log('-----------------------')
 
     const cropRes = await goCrop(topOffset,img_path, originImgWidth, originImgHeight);
@@ -59,19 +46,18 @@ var successLandMark = async function(img_path,landmarkResult, index) {
 var successBehind = async function(img_path) {
 
     console.log('-----------------------')
-    console.log('|                     |')
     console.log('|    LandMark Fail but LL4 > '+ img_path)
-    console.log('|                     |')
     console.log('-----------------------')
 
     const imgPathResolve = path.resolve(img_path);
 
     let data = fs.readFileSync(imgPathResolve);
-    console.log(luckychouetteFirstImgTop)
-    console.log(probe.sync(data).width)
-    console.log(probe.sync(data).height)
 
-    const cropRes = await goCrop(luckychouetteFirstImgTop,img_path, probe.sync(data).width, probe.sync(data).height);
+    console.log('-----------------------')
+    console.log('|        Go Crop      |')
+    console.log('-----------------------')
+
+    const cropRes = await goCrop(210,img_path, probe.sync(data).width, probe.sync(data).height);
     return {
         origin:img_path,
         result: './crop'+ cropRes.path.split('/crop')[1]

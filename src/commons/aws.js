@@ -15,9 +15,37 @@ const awsUpload = async (path) => {
     }).promise();
 
     imgUploadRes.then( function(data) {
-        return 200;
+        return {
+            status: 200,
+            result:data
+        };
     }).catch( function(err) {
-        return 404;
+        return {
+            status: 404,
+            result:''
+        };
     });
-
 }
+
+var awsUploadImg = async (list) => {
+    let resultList = [];
+    const awsImgPromise = list.map(async (name) => {
+        const res = await awsUpload(name);
+        if(res.status == 200) {
+            resultList.push(res.result);
+        }
+    });
+  
+    const promiseResult = await Promise.all(awsImgPromise);
+  
+    if (promiseResult) return {
+        status:200,
+        result:resultList
+      };
+      else return {
+        status:404,
+        result:[]
+      };
+}
+
+export { awsUploadImg }
